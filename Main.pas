@@ -9,7 +9,12 @@ uses
 type
   TWaterLevel = (waterlevelOk, waterlevelLow);
 
-  TThermostatState = (thermostateOff, thermostateOn, thermostateDisabledWater,
+  TThermostatSuperState = (thermosuperstateDisabled,
+                           thermosuperstateEnabled);
+
+  TThermostatState = (thermostateOff,
+                      thermostateOn,
+                      thermostateDisabledWater,
                       thermostateDisabledLowWater);
 
   TFormMain = class(TForm)
@@ -34,11 +39,11 @@ type
     FThermostatEnabled: Boolean;
     procedure UpdateSampleTemperature;
     procedure EnableControls;
-    procedure SetButtonStarStopCaption;
     procedure TrackBarFromTemp(TrackBar: TTrackBar; Temp: Integer);
     function TempFromTrackBar(TrackBar: TTrackBar): Integer;
     procedure SetControlWaterLevel(Value: TWaterLevel);
     function GetControlWaterLevel: TWaterLevel;
+    procedure SetCaptionButtonStartStop;
     procedure SetLabelHeater;
     procedure SetSampleTemperature(const Value: Integer);
     procedure SetTargetTemperature(const Value: Integer);
@@ -46,7 +51,19 @@ type
     procedure SetWaterLevel(const Value: TWaterLevel);
     procedure SetThermostatEnabled(const Value: Boolean);
   private
+    // *** Super state
     FThermostatState: TThermostatState;
+    procedure CheckSuperState;
+    procedure CheckDisabled;
+    procedure CheckEnabled;
+    procedure SetThermoDisabled;
+    procedure SetThermoEnabled;
+    procedure EntryDisabled;
+    procedure EntryEnabled;
+    procedure SetThermostatSuperState(const Value: TThermostatSuperState);
+  private
+    // *** State
+    FThermostatSuperState: TThermostatSuperState;
     procedure CheckState;
     procedure CheckOffState;
     procedure CheckOnState;
@@ -58,16 +75,21 @@ type
     procedure SetDisabledLowWater;
     procedure SetThermostatState(const Value: TThermostatState);
   public
+    // *** Inputs
     property SampleTemperature: Integer read FSampleTemperature
       write SetSampleTemperature;
     property TargetTemperature: Integer read FTargetTemperature
       write SetTargetTemperature;
-    property Heater: Boolean read FHeater write SetHeater;
     property WaterLevel: TWaterLevel read FWaterLevel write SetWaterLevel;
     property ThermostatEnabled: Boolean read FThermostatEnabled
       write SetThermostatEnabled;
+    // *** Outputs
+    property Heater: Boolean read FHeater write SetHeater;
+    // *** States
     property ThermostatState: TThermostatState read FThermostatState
       write SetThermostatState;
+    property ThermostatSuperState: TThermostatSuperState
+      read FThermostatSuperState write SetThermostatSuperState;
   end;
 
 var
@@ -84,66 +106,41 @@ begin
   ThermostatEnabled := not ThermostatEnabled;
 end;
 
+procedure TFormMain.CheckDisabled;
+begin
+  if ThermostatEnabled and (WaterLevel = waterlevelOk) then
+    ThermostatSuperState := thermosuperstateEnabled;
+end;
+
 procedure TFormMain.CheckDisabledLowWater;
 begin
   if WaterLevel = waterlevelOk then
-  begin
-    if ThermostatEnabled then
-    begin
-      if SampleTemperature < TargetTemperature then
-        ThermostatState := thermostateOn
-      else ThermostatState := thermostateOff;
-    end
-    else ThermostatState := thermostateDisabledWater;
-  end;
+    ThermostatState := thermostateDisabledWater;
 end;
 
 procedure TFormMain.CheckDisabledWater;
 begin
-  if WaterLevel = waterlevelOk then
-  begin
-    if ThermostatEnabled then
-    begin
-      if SampleTemperature < TargetTemperature then
-        ThermostatState := thermostateOn
-      else ThermostatState := thermostateOff;
-    end
-  end
-  else ThermostatState := thermostateDisabledLowWater;
+  if WaterLevel = waterlevelLow then
+    ThermostatState := thermostateDisabledLowWater;
+end;
+
+procedure TFormMain.CheckEnabled;
+begin
+  if (not ThermostatEnabled) or (WaterLevel = waterlevelLow) then
+    ThermostatSuperState := thermosuperstateDisabled;
 end;
 
 procedure TFormMain.CheckOffState;
 begin
-  if ThermostatEnabled and (WaterLevel = waterlevelOk) then
-  begin
+  if WaterLevel = waterlevelOk then
     if SampleTemperature < TargetTemperature then
       ThermostatState := thermostateOn;
-  end
-  else
-  begin
-    if not ThermostatEnabled then
-    begin
-      if WaterLevel = waterlevelOk then
-        ThermostatState := thermostateDisabledWater
-      else ThermostatState := thermostateDisabledLowWater;
-    end;
-  end;
 end;
 
 procedure TFormMain.CheckOnState;
 begin
-  if ThermostatEnabled and (WaterLevel = waterlevelOk) then
-  begin
-    if SampleTemperature >= TargetTemperature then
-      ThermostatState := thermostateOff;
-  end
-  else
-  begin
-    ThermostatEnabled := False;
-    if WaterLevel = waterlevelOk then
-      ThermostatState := thermostateDisabledWater
-    else ThermostatState := thermostateDisabledLowWater;
-  end;
+  if SampleTemperature >= TargetTemperature then
+    ThermostatState := thermostateOff;
 end;
 
 procedure TFormMain.CheckState;
@@ -156,9 +153,31 @@ begin
   end;
 end;
 
+procedure TFormMain.CheckSuperState;
+begin
+  case ThermostatSuperState of
+    thermosuperstateDisabled: CheckDisabled;
+    thermosuperstateEnabled: CheckEnabled;
+  end;
+end;
+
 procedure TFormMain.EnableControls;
 begin
   ButtonStartStop.Enabled := (WaterLevel = waterlevelOk);
+end;
+
+procedure TFormMain.EntryDisabled;
+begin
+  if WaterLevel = waterlevelLow then
+    ThermostatState := thermostateDisabledWater
+  else ThermostatState := thermostateDisabledLowWater;
+end;
+
+procedure TFormMain.EntryEnabled;
+begin
+  if SampleTemperature < TargetTemperature then
+    ThermostatState := thermostateOn
+  else ThermostatState := thermostateOff
 end;
 
 procedure TFormMain.FormCreate(Sender: TObject);
@@ -168,6 +187,8 @@ begin
   Heater := False;
   WaterLevel := waterlevelOk;
   ThermostatEnabled := False;
+  ThermostatSuperState := thermosuperstateDisabled;
+  ThermostatState := thermostateDisabledWater;
   EnableControls;
 end;
 
@@ -181,7 +202,7 @@ begin
   WaterLevel := GetControlWaterLevel;
 end;
 
-procedure TFormMain.SetButtonStarStopCaption;
+procedure TFormMain.SetCaptionButtonStartStop;
 begin
   if ThermostatEnabled then
     ButtonStartStop.Caption := 'Stop'
@@ -202,7 +223,6 @@ end;
 procedure TFormMain.SetDisabledWater;
 begin
   Heater := False;
-
 end;
 
 procedure TFormMain.SetHeater(const Value: Boolean);
@@ -256,12 +276,24 @@ begin
   end;
 end;
 
+procedure TFormMain.SetThermoDisabled;
+begin
+  Heater := False;
+  ThermostatEnabled := False;
+  EntryDisabled;
+end;
+
+procedure TFormMain.SetThermoEnabled;
+begin
+  EntryEnabled;
+end;
+
 procedure TFormMain.SetThermostatEnabled(const Value: Boolean);
 begin
   if FThermostatEnabled <> Value then
   begin
     FThermostatEnabled := Value;
-    SetButtonStarStopCaption;
+    SetCaptionButtonStartStop;
   end;
 end;
 
@@ -275,6 +307,18 @@ begin
       thermostateOn: SetOnState;
       thermostateDisabledWater: SetDisabledWater;
       thermostateDisabledLowWater: SetDisabledLowWater;
+    end;
+  end;
+end;
+
+procedure TFormMain.SetThermostatSuperState(const Value: TThermostatSuperState);
+begin
+  if FThermostatSuperState <> Value then
+  begin
+    FThermostatSuperState := Value;
+    case FThermostatSuperState of
+      thermosuperstateDisabled: SetThermoDisabled;
+      thermosuperstateEnabled: SetThermoEnabled;
     end;
   end;
 end;
@@ -294,9 +338,15 @@ begin
 end;
 
 procedure TFormMain.Timer1Timer(Sender: TObject);
+var auxSuperState: TThermostatSuperState;
 begin
   UpdateSampleTemperature;
-  CheckState;
+
+  auxSuperState := ThermostatSuperState;
+  CheckSuperState;
+  if auxSuperState = ThermostatSuperState then
+    CheckState;
+
   EnableControls;
 end;
 
