@@ -47,6 +47,13 @@
 			<DCCReference Include="Main.pas">
 				<Form>FormMain</Form>
 			</DCCReference>
+			<DCCReference Include="Thermostat.Classes.pas"/>
+			<DCCReference Include="Thermostat.DisabledState.pas"/>
+			<DCCReference Include="Thermostat.EnabledState.pas"/>
+			<DCCReference Include="Thermostat.DisabledWaterState.pas"/>
+			<DCCReference Include="Thermostat.DisabledLowWaterState.pas"/>
+			<DCCReference Include="Thermostat.HeatingState.pas"/>
+			<DCCReference Include="Thermostat.NotHeatingState.pas"/>
 			<BuildConfiguration Include="Release">
 				<Key>Cfg_2</Key>
 				<CfgParent>Base</CfgParent>
@@ -106,6 +113,9 @@
 				<Platforms>
 					<Platform value="Win32">True</Platform>
 				</Platforms>
+				<UnitTesting>
+					<TestProjectName>C:\VCS_Samples\Thermostat\Test\ThermostatTests.dproj</TestProjectName>
+				</UnitTesting>
 			</BorlandProject>
 			<ProjectFileVersion>12</ProjectFileVersion>
 		</ProjectExtensions>
